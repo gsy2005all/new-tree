@@ -1,5 +1,6 @@
-from sqlmodel import SQLModel, create_engine
 from contextlib import asynccontextmanager
+from db.db import create_db_and_tables
+from utils.log import init_logger
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from loguru import logger
@@ -13,18 +14,6 @@ from modules.day import Day
 
 load_dotenv() # 导入.env文件中的环境变量
 
-# 初始化日志记录器
-def init_logger():
-    logger.add("file.log", format=environ.get("LOG_FORMAT", "{time:YYYY-MM-DD at HH:mm:ss} | {level} | {message}"))
-    logger.info("The application is starting up")
-# 创建数据库和表
-def create_db_and_tables():
-    sqlite_file_name = "database.db" #指定数据库文件的名称
-    sqlite_url =f"sqlite:///{sqlite_file_name}" 
-    connect_args ={"check_same_thread":False}
-    engine=create_engine(sqlite_url,connect_args=connect_args)#数据库的操作权
-    SQLModel.metadata.create_all(engine)
-    logger.info("The database.db created.")
 # 这里是APP生命周期
 @asynccontextmanager
 async def lifespan(app:FastAPI):
@@ -36,6 +25,7 @@ async def lifespan(app:FastAPI):
     
     #这里是APP生命周期结束要做的事情
     logger.info("The application is shutting down")
+    
 # 创建FastAPI应用实例，并指定生命周期函数
 app=FastAPI(lifespan=lifespan)
 
