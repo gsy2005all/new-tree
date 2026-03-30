@@ -7,11 +7,6 @@ from fastapi import FastAPI
 from loguru import logger
 from os import environ
 import uvicorn
-#这上面的是导入模块和库的部分，下面是导入我们自己写的模块
-
-from modules.user import User
-from modules.target import Target
-from modules.day import Day
 
 load_dotenv() # 导入.env文件中的环境变量
 
@@ -21,7 +16,6 @@ async def lifespan(app:FastAPI):
     # 这里是APP生命周期开始要做的事情
     init_logger()
     create_db_and_tables()
-
 
     yield#这里表示"你的"APP开始执行的时候
     

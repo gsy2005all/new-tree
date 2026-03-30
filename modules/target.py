@@ -4,7 +4,7 @@ from modules.base import Base
 
 
 class Target(Base, table=True):
-    name: str = Field(default=None, primary_key=True)
+    name: str = Field(default=None)
     current_day: int  = Field(default=None)
     deadline: datetime  = Field(default=None)
     days: list[int]  = Field(default=[], sa_column=Column(JSON))
