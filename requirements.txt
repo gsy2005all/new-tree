@@ -2,5 +2,6 @@ fastapi[standard]
 loguru
 python-dotenv
 sqlmodel
-passlib[bcrypt]==1.7.4
-bcrypt==4.3.0
+bcrypt
+PyJWT
+tzdata

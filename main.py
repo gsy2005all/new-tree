@@ -1,14 +1,16 @@
+from dotenv import load_dotenv
+load_dotenv() # 导入.env文件中的环境变量
+
+
 from contextlib import asynccontextmanager
 from db.db import create_db_and_tables
 from utils.log import init_logger
-from dotenv import load_dotenv
 from routers.user_r import user_router
 from fastapi import FastAPI
 from loguru import logger
 from os import environ
 import uvicorn
 
-load_dotenv() # 导入.env文件中的环境变量
 
 # 这里是APP生命周期
 @asynccontextmanager
