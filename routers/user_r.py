@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlmodel import select
 from db.db import DbHandelr
 from middleware.check_auth import check_auth_M
+from middleware.http_log import http_log_M
 from modules.user import User, UserPayload, UserPublic
 from modules.tree_app_res import TreeAppHttpResponse
 from utils.jwt import create_jwt
@@ -9,7 +10,7 @@ from utils.jwt import create_jwt
 from utils.security import get_passwd_hash, verify_passwd 
 
 # 创建一个APIRouter实例，指定路由的前缀为/users，这样所有在这个路由器中定义的路由都会以/users开头
-user_router = APIRouter(prefix="/users")
+user_router = APIRouter(prefix="/users", dependencies=[Depends(http_log_M)])
 
 def user_to_user_public(user: User) -> UserPublic:
     # #定义一个函数，将User对象转换为UserPublic对象，返回一个UserPublic对象，包含User对象的name和targets属性
