@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from db.db import create_db_and_tables
 from utils.log import init_logger
 from routers.user_r import user_router
+from routers.target_r import target_router
 from fastapi import FastAPI
 from loguru import logger
 from os import environ
@@ -28,6 +29,7 @@ async def lifespan(app:FastAPI):
 app=FastAPI(lifespan=lifespan)
 
 app.include_router(user_router)
+app.include_router(target_router)
 
 # localhost、127.0.0.1 表示监听本地机器
 # 0.0.0.0 表示 监听所有的IP地址（包括本地和外部访问）
