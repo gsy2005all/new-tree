@@ -28,6 +28,8 @@ async def lifespan(app:FastAPI):
 # 创建FastAPI应用实例，并指定生命周期函数
 app=FastAPI(lifespan=lifespan)
 
+#将user_router路由器包含到FastAPI应用中，这样就可以访问/user开头的路由了
+#将target_router路由器包含到FastAPI应用中，这样就可以访问/targets开头的路由了
 app.include_router(user_router)
 app.include_router(target_router)
 

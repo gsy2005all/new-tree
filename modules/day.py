@@ -1,7 +1,12 @@
-from sqlmodel import Field
+from typing import TYPE_CHECKING, Optional
+from sqlmodel import Field, Relationship
 from modules.base import Base
 
+if TYPE_CHECKING:
+    from modules.target import Target
 
-class Day(Base, table=True):#定义一个Day类，继承自Base类，所以没有主键字段
-    day_proof: str = Field(default=None)
-    status: str = Field(default=None)
+class Day(Base, table=True):
+    day_proof: str | None = Field(default=None)
+    status: str | None = Field(default=None)
+    target_id: int | None = Field(default=None, foreign_key="target.id")
+    target: Optional["Target"] = Relationship(back_populates="days")
