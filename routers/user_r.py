@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlmodel import select
-from db.db import DbHandelr
+from db.db import DbHandler
 from middleware.check_auth import check_auth_M
 from middleware.http_log import http_log_M
 from modules.user import User, UserInput, UserPayload, UserOutput
@@ -25,18 +25,19 @@ def user_to_user_public(user: User) -> UserOutput:
 # TreeAppHttpResponse对象（Python数据类型） -> Fastapi加工 -> 后端 -> JSON -> 前端
 
 def set_user_token_to_user_public(user: User) -> UserOutput:
-    #将User对象转换为UserPublic对象，包含User对象的name和targets属性
-    user_public = user_to_user_public(user) 
+    #将User对象转换为UserPublic对象，包含User对象的name和targets属性,UserOutput是返回给前端的用户信息模型类
+    user_output = user_to_user_public(user) 
     # 创建一个JWT token，包含用户的id和name等信息
     # 将JWT token设置为UserPublic对象的token属性
-    user_public.token = create_jwt({"user_id": user.id, "user_name": user.name}, expire_minutes=60*24*7) 
+    #之所以设置过期时间为7天，是因为这个token是用来保持用户登录状态的，过期时间太短会导致用户频繁登录，过期时间太长又可能存在安全风险
+    user_output.token = create_jwt({"user_id": user.id, "user_name": user.name}, expire_minutes=60*24*7)
     #返回一个UserPublic对象，包含User对象的name和targets属性，以及JWT token
-    return user_public 
+    return user_output 
 
 # 定义一个POST请求的路由，路径为/users/add，响应模型为TreeAppRes
 @user_router.post("/add", response_model=TreeAppHttpResponse)   
 # 定义一个函数，参数x是一个usercreate对象，db_handler是一个可以操作数据库的对象
-def add_user(user_input: UserInput, db_handler: DbHandelr):
+def add_user(user_input: UserInput, db_handler: DbHandler):
     found_user = db_handler.exec(select(User).where(User.name  == user_input.name)).first()
 
     if found_user:
@@ -57,7 +58,7 @@ def add_user(user_input: UserInput, db_handler: DbHandelr):
     return TreeAppHttpResponse(message="User added successfully", data=[set_user_token_to_user_public(user_n)]) 
 
 @user_router.post("/login", response_model=TreeAppHttpResponse)
-def login_user(user_n: User, db_handler: DbHandelr):
+def login_user(user_n: User, db_handler: DbHandler):
     # 查询数据库中是否存在用户名为user_n.name的User对象
     found_user = db_handler.exec(select(User).where(User.name == user_n.name)).first()
     # 如果不存在，返回一个HTTP 404错误，提示用户名或密码无效
@@ -74,7 +75,7 @@ def login_user(user_n: User, db_handler: DbHandelr):
 
 # 定义一个POST请求的路由，路径为/users/tokenlogin，响应模型为TreeAppRes，依赖项为check_auth_M函数
 @user_router.post("/tokenlogin", response_model=TreeAppHttpResponse, dependencies=[Depends(check_auth_M)])
-def token_login(request: Request, db_handler: DbHandelr):
+def token_login(request: Request, db_handler: DbHandler):
     # 从请求状态中获取用户负载信息
     user_payload: UserPayload = request.state.user_payload
     

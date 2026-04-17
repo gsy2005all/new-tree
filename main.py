@@ -7,6 +7,7 @@ from db.db import create_db_and_tables
 from utils.log import init_logger
 from routers.user_r import user_router
 from routers.target_r import target_router
+from routers.day_r import day_router
 from fastapi import FastAPI
 from loguru import logger
 from os import environ
@@ -32,6 +33,7 @@ app=FastAPI(lifespan=lifespan)
 #将target_router路由器包含到FastAPI应用中，这样就可以访问/targets开头的路由了
 app.include_router(user_router)
 app.include_router(target_router)
+app.include_router(day_router)
 
 # localhost、127.0.0.1 表示监听本地机器
 # 0.0.0.0 表示 监听所有的IP地址（包括本地和外部访问）

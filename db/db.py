@@ -24,4 +24,4 @@ def get_session(): #获取数据库会话的函数，作为FastAPI的依赖项
         yield session #提供数据库会话给依赖项，使用yield关键字将会话返回给调用者，并在调用者完成后自动关闭会话
       
 
-DbHandelr = Annotated[Session, Depends(get_session)] #依赖注入，把获取数据库会话封装成可复用的类型注解
+DbHandler = Annotated[Session, Depends(get_session)] #依赖注入，把获取数据库会话封装成可复用的类型注解

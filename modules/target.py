@@ -15,13 +15,18 @@ class Target(Base, table=True):
     name: str = Field(default=None)
     creater_user_id: int | None = Field(default=None, foreign_key="user.id")
     creater_user: Optional["User"] = Relationship(back_populates="targets")
-    days: list["Day"] = Relationship(back_populates="target")
+    days: list["Day"] = Relationship(back_populates="target") 
     current_day: int  = Field(default=0)
+    start_time: datetime = Field(default=None)
     deadline_time: datetime  = Field(default=None)
     remind_time: datetime = Field(default=None) 
 
 #TargetInput是一个目标输入模型类，用于表示目标的输入信息，里面包含目标的name、deadline_time和remind_time等信息
 class TargetInput(BaseModel):
     name: str
+    start_time: datetime
     deadline_time: datetime
     remind_time: datetime
+
+class TargetUpdateInput(TargetInput):
+    update_field: list[str]
