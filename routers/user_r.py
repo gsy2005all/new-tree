@@ -55,7 +55,7 @@ def add_user(user_input: UserInput, db_handler: DbHandler):
     db_handler.refresh(user_n) 
 
     # 返回添加的User对象，包含数据库中生成的id等字段的值
-    return TreeAppHttpResponse(message="User added successfully", data=[set_user_token_to_user_public(user_n)]) 
+    return TreeAppHttpResponse(message="User added successfully", data=[set_user_token_to_user_public(user_n)], total=1) 
 
 @user_router.post("/login", response_model=TreeAppHttpResponse)
 def login_user(user_n: User, db_handler: DbHandler):
@@ -71,7 +71,7 @@ def login_user(user_n: User, db_handler: DbHandler):
         raise HTTPException(status_code=400, detail="Invalid username or password") 
     
     # 如果匹配，返回查询到的User对象，表示登录成功
-    return TreeAppHttpResponse(message="Login successful", data=[set_user_token_to_user_public(found_user)]) 
+    return TreeAppHttpResponse(message="Login successful", data=[set_user_token_to_user_public(found_user)], total=1) 
 
 # 定义一个POST请求的路由，路径为/users/tokenlogin，响应模型为TreeAppRes，依赖项为check_auth_M函数
 @user_router.post("/tokenlogin", response_model=TreeAppHttpResponse, dependencies=[Depends(check_auth_M)])
@@ -94,4 +94,4 @@ def token_login(request: Request, db_handler: DbHandler):
     user_public.token = request.state.token
 
     # 如果存在，返回查询到的User对象，表示token登录成功
-    return TreeAppHttpResponse(message="Token login successful", data=[user_public]) 
+    return TreeAppHttpResponse(message="Token login successful", data=[user_public], total=1) 
