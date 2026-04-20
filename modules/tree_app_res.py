@@ -5,3 +5,4 @@ class TreeAppHttpResponse(BaseModel):
     message: str
     #定义一个属性data，类型为list，默认值为一个空列表
     data: List = [] 
+    total: int

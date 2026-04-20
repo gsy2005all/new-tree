@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Query
 #HTTPException是FastAPI中用于抛出HTTP异常的类，Request是FastAPI中表示HTTP请求的类
 from sqlmodel import select
 from db.db import DbHandler
@@ -30,17 +30,20 @@ def add_target(target_input: TargetInput, db_handler: DbHandler, request: Reques
     db_handler.refresh(target_n)
     
     # 返回添加的Target对象，包含数据库中生成的id等字段的值
-    return TreeAppHttpResponse(message="Target added successfully", data=[target_n])
+    return TreeAppHttpResponse(message="Target added successfully", data=[target_n], total=1)
+
 # 定义一个GET请求的路由，路径为/targets/query，响应模型为TreeAppRes
 @target_router.get("/query", response_model=TreeAppHttpResponse)
     #查询数据库中creater_user_id等于当前用户id的Target对象列表
-def query_targets(db_handler: DbHandler, request: Request):
+def query_targets(db_handler: DbHandler, request: Request, offset: int, limit: int = Query(default=100, le=100)):
     #查询数据库中creater_user_id等于当前用户id的Target对象列表，并将结果赋值给target_list变量
-    target_list = db_handler.exec(select(Target).where(Target.creater_user_id == request.state.user_payload.user_id)).all()
-    return TreeAppHttpResponse(message="Targets queried successfully", data=list(target_list))
+    target_list = db_handler.exec(select(Target).where(Target.creater_user_id == request.state.user_payload.user_id).offset(offset).limit(limit).order_by()).all()
+    target_total = len(db_handler.exec(select(Target, Target.id).where(Target.creater_user_id == request.state.user_payload.user_id)).all())
 
-# 定义一个POST请求的路由，路径为/targets/change/{target_id}，响应模型为TreeAppRes
-@target_router.post("/change/{target_id}", response_model=TreeAppHttpResponse)
+    return TreeAppHttpResponse(message="Targets queried successfully", data=list(target_list), total=int(target_total))
+
+# 定义一个POST请求的路由，路径为/targets/update/{target_id}，响应模型为TreeAppResponse
+@target_router.post("/update/{target_id}", response_model=TreeAppHttpResponse)
 def update_target(target_id: int, target_update_input: TargetUpdateInput, db_handler: DbHandler, request: Request):
     # 查询要修改的Target对象
     target = db_handler.exec(select(Target).where(Target.id == target_id)).first()
@@ -62,7 +65,7 @@ def update_target(target_id: int, target_update_input: TargetUpdateInput, db_han
     db_handler.refresh(target)
 
     # 返回修改后的Target对象
-    return TreeAppHttpResponse(message="Target updated successfully", data=[target])
+    return TreeAppHttpResponse(message="Target updated successfully", data=[target], total=1)
 
 # 定义一个POST请求的路由，路径为/targets/delete/{target_id}，响应模型为TreeAppRes
 @target_router.post("/delete/{target_id}", response_model=TreeAppHttpResponse)
@@ -82,4 +85,4 @@ def delete_target(target_id: int, db_handler: DbHandler, request: Request):
     db_handler.commit()
 
     # 返回删除成功的消息
-    return TreeAppHttpResponse(message="Target deleted successfully", data=[])
+    return TreeAppHttpResponse(message="Target deleted successfully", data=[target], total=1)

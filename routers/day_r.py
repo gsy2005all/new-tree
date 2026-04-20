@@ -7,7 +7,7 @@ from middleware.check_auth import check_auth_M
 from middleware.http_log import http_log_M
 from modules.day import Day, DayInput
 from modules.target import Target
-from modules.tree_app_res import TreeAppHttpResponse
+from modules.tree_app_res import TreeAppHttpResponse 
 
 day_router = APIRouter(prefix="/days", dependencies=[Depends(http_log_M), Depends(check_auth_M)])
 
@@ -27,7 +27,7 @@ def query_days(target_id: int ,db_handler: DbHandler, request: Request):
 
     day_list = db_handler.exec(select(Day).where(Day.target_id == target_id)).all()    
 
-    return TreeAppHttpResponse(message="Days queried successfully", data=list(day_list))
+    return TreeAppHttpResponse(message="Days queried successfully", data=list(day_list), total=len(list(day_list)))
 
 
 @day_router.post("/add/{target_id}", response_model=TreeAppHttpResponse)
@@ -47,5 +47,22 @@ def add_day(target_id: int, day_input: DayInput, db_handler: DbHandler, request:
     db_handler.add(day_n)
     db_handler.commit()
     db_handler.refresh(day_n)
+
+@day_router.post("/update/{target_id}/{day_id}", response_model=TreeAppHttpResponse)
+def update_day(target_id: int, day_id: int, day_input: DayInput, db_handler: DbHandler, request: Request):
+    target = check_target_permission(target_id, db_handler, request)
+    day = db_handler.exec(select(Day).where(Day.id == day_id)).first() 
+    if not day:
+        raise HTTPException(404, detail="The day does not found")
     
-    return TreeAppHttpResponse(message="Day added successfully", data=[day_n])
+    if day.target_id != target.id:
+        raise HTTPException(400, "The day does not belong to the specified target")
+    
+    for key, value in day_input.model_dump().items():
+        setattr(day, key, value)
+
+    db_handler.commit()
+    db_handler.refresh(day)
+    
+    return TreeAppHttpResponse(message="Day updated successfully", data=[day], total=1)
+    

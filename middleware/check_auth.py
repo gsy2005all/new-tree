@@ -17,7 +17,7 @@ def check_auth_M(request: Request):
     if payload is None:
         raise HTTPException(status_code=400, detail="授权token解析失败, 拒绝访问!!!")
 
-    # 将解析后的用户负载信息存储在请求状态中，供后续的路由处理函数使用
+    # 将解析后的用户载荷信息存储在请求状态中，供后续的路由处理函数使用
     request.state.user_payload = UserPayload(**payload)
     request.state.token = token
 
