@@ -30,7 +30,7 @@ def set_user_token_to_user_public(user: User) -> UserOutput:
     # 创建一个JWT token，包含用户的id和name等信息
     # 将JWT token设置为UserPublic对象的token属性
     #之所以设置过期时间为7天，是因为这个token是用来保持用户登录状态的，过期时间太短会导致用户频繁登录，过期时间太长又可能存在安全风险
-    user_output.token = create_jwt({"user_id": user.id, "user_name": user.name}, expire_minutes=60*24*7)
+    user_output.token = create_jwt({"user_id": user.id, "user_name": user.name, "role": user.role}, expire_minutes=60*24*7)
     #返回一个UserPublic对象，包含User对象的name和targets属性，以及JWT token
     return user_output 
 

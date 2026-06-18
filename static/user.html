@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#2f8f4e" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>打卡树 · 用户端</title>
+  <link rel="stylesheet" href="/static/app.css" />
+</head>
+<body>
+  <div class="phone">
+    <div class="topbar">
+      <h1>🌳 我的打卡 <span class="sub" id="who"></span></h1>
+      <button id="logoutBtn" class="hidden" onclick="logout()">退出</button>
+    </div>
+    <div class="screen" id="screen"></div>
+  </div>
+
+  <script src="/static/api.js"></script>
+  <script>
+    const TK = "tree_user_token";          // 用户端 token 的存储 key
+    const screen = document.getElementById("screen");
+    const whoEl = document.getElementById("who");
+    const logoutBtn = document.getElementById("logoutBtn");
+
+    // ---------- 登录 / 注册 ----------
+    function renderAuth() {
+      whoEl.textContent = "";
+      logoutBtn.classList.add("hidden");
+      screen.innerHTML = `
+        <div class="card">
+          <h3 id="authTitle">登录</h3>
+          <label>用户名</label>
+          <input id="name" placeholder="请输入用户名" />
+          <label>密码</label>
+          <input id="pwd" type="password" placeholder="请输入密码" />
+          <button class="btn" id="authBtn" onclick="doAuth()">登录</button>
+          <p class="hint">还没有账号？<a href="#" onclick="toggleMode();return false;" id="toggle">点此注册</a></p>
+        </div>`;
+      authMode = "login";
+    }
+    let authMode = "login";
+    function toggleMode() {
+      authMode = authMode === "login" ? "register" : "login";
+      document.getElementById("authTitle").textContent = authMode === "login" ? "登录" : "注册";
+      document.getElementById("authBtn").textContent = authMode === "login" ? "登录" : "注册";
+      document.getElementById("toggle").textContent = authMode === "login" ? "点此注册" : "返回登录";
+    }
+    async function doAuth() {
+      const name = document.getElementById("name").value.trim();
+      const password = document.getElementById("pwd").value;
+      if (!name || !password) return toast("请填写用户名和密码");
+      try {
+        const path = authMode === "login" ? "/users/login" : "/users/add";
+        const res = await api(path, { method: "POST", body: { name, password } });
+        TokenStore.set(TK, res.data[0].token);
+        toast(authMode === "login" ? "登录成功" : "注册成功");
+        renderHome();
+      } catch (e) { toast(e.message); }
+    }
+
+    // ---------- 主页：我的目标列表 ----------
+    async function renderHome() {
+      logoutBtn.classList.remove("hidden");
+      const token = TokenStore.get(TK);
+      let targets = [];
+      try {
+        const me = await api("/users/tokenlogin", { method: "POST", token });
+        whoEl.textContent = me.data[0].name;
+        const res = await api("/targets/query?offset=0&limit=100", { token });
+        targets = res.data;
+      } catch (e) { toast("登录已过期，请重新登录"); return logout(); }
+
+      let html = `<button class="btn" onclick="renderForm()">＋ 新建打卡目标</button>`;
+      if (!targets.length) {
+        html += `<div class="empty">还没有目标，点上方按钮创建吧</div>`;
+      } else {
+        for (const t of targets) {
+          const reason = t.audit_reason ? `<br>审核意见：${t.audit_reason}` : "";
+          html += `
+            <div class="card">
+              <h3>${t.name} <span class="badge ${t.audit_status}">${STATUS_TEXT[t.audit_status]}</span></h3>
+              <div class="meta">
+                开始：${fmt(t.start_time)}<br>
+                截止：${fmt(t.deadline_time)}<br>
+                提醒：${fmt(t.remind_time)} · 已打卡 ${t.current_day} 天${reason}
+              </div>
+              <div class="btn-row">
+                ${t.audit_status === "approved"
+                  ? `<button class="btn" onclick="checkin(${t.id})">打卡</button>`
+                  : `<button class="btn secondary" disabled style="opacity:.5">待通过</button>`}
+                <button class="btn secondary" onclick='renderForm(${JSON.stringify(t)})'>修改</button>
+                <button class="btn danger" onclick="del(${t.id})">删除</button>
+              </div>
+            </div>`;
+        }
+      }
+      screen.innerHTML = html;
+    }
+
+    // ---------- 新建 / 修改 目标表单 ----------
+    function renderForm(target) {
+      const editing = !!target;
+      const now = new Date();
+      const plus = (days) => { const d = new Date(now); d.setDate(d.getDate() + days); return d; };
+      const v = {
+        name: editing ? target.name : "",
+        start: editing ? target.start_time.slice(0, 16) : toLocalInput(now),
+        deadline: editing ? target.deadline_time.slice(0, 16) : toLocalInput(plus(30)),
+        remind: editing ? target.remind_time.slice(0, 16) : toLocalInput(plus(1)),
+      };
+      screen.innerHTML = `
+        <div class="card">
+          <h3>${editing ? "修改目标" : "新建打卡目标"}</h3>
+          <label>目标名称</label>
+          <input id="t_name" value="${v.name}" placeholder="例如：每天跑步5公里" />
+          <label>开始时间</label>
+          <input id="t_start" type="datetime-local" value="${v.start}" />
+          <label>截止时间</label>
+          <input id="t_deadline" type="datetime-local" value="${v.deadline}" />
+          <label>提醒时间</label>
+          <input id="t_remind" type="datetime-local" value="${v.remind}" />
+          <button class="btn" onclick="saveTarget(${editing ? target.id : "null"})">${editing ? "保存修改" : "提交"}</button>
+          <button class="btn secondary" onclick="renderHome()">取消</button>
+          <p class="hint">提交后需等管理员审核通过才能打卡${editing ? "；修改后会重新进入待审核" : ""}</p>
+        </div>`;
+    }
+    async function saveTarget(id) {
+      const token = TokenStore.get(TK);
+      const body = {
+        name: document.getElementById("t_name").value.trim(),
+        start_time: document.getElementById("t_start").value,
+        deadline_time: document.getElementById("t_deadline").value,
+        remind_time: document.getElementById("t_remind").value,
+      };
+      if (!body.name) return toast("请填写目标名称");
+      try {
+        if (id === null) {
+          await api("/targets/add", { method: "POST", token, body });
+          toast("已提交，等待审核");
+        } else {
+          body.update_field = ["name", "start_time", "deadline_time", "remind_time"];
+          await api(`/targets/update/${id}`, { method: "POST", token, body });
+          toast("已修改，重新等待审核");
+        }
+        renderHome();
+      } catch (e) { toast(e.message); }
+    }
+
+    async function del(id) {
+      if (!confirm("确定删除该目标？")) return;
+      try {
+        await api(`/targets/delete/${id}`, { method: "POST", token: TokenStore.get(TK) });
+        toast("已删除");
+        renderHome();
+      } catch (e) { toast(e.message); }
+    }
+
+    async function checkin(id) {
+      const proof = prompt("填写本次打卡的证据（如图片路径/一句话记录）：", "今日已完成");
+      if (proof === null) return;
+      try {
+        await api(`/days/add/${id}`, { method: "POST", token: TokenStore.get(TK), body: { day_proof: proof } });
+        toast("打卡成功！");
+        renderHome();
+      } catch (e) { toast(e.message); }
+    }
+
+    function logout() { TokenStore.clear(TK); renderAuth(); }
+
+    // 启动：有 token 直接进主页，否则去登录
+    if (TokenStore.get(TK)) renderHome(); else renderAuth();
+  </script>
+</body>
+</html>

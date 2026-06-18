@@ -9,7 +9,10 @@ from routers.user_r import user_router
 from routers.target_r import target_router
 from routers.day_r import day_router
 from routers.app_r import app_router
+from routers.admin_r import admin_router
 from fastapi import FastAPI
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from loguru import logger
 from os import environ
 import uvicorn
@@ -36,10 +39,20 @@ app.include_router(user_router)
 app.include_router(target_router)
 app.include_router(day_router)
 app.include_router(app_router)
+app.include_router(admin_router)
+
+# 访问根路径 / 时，自动跳转到入口选择页面（手机模拟器首页）
+@app.get("/")
+def index():
+    return RedirectResponse(url="/static/index.html")
+
+# 把 static 目录挂载为静态资源，前端页面(手机模拟器)就由它来提供
+# 用户入口:  /static/user.html    管理员入口: /static/admin.html
+app.mount("/static", StaticFiles(directory="static", html=True), name="static")
 
 # localhost、127.0.0.1 表示监听本地机器
 # 0.0.0.0 表示 监听所有的IP地址（包括本地和外部访问）
 
 # 8000 是监听的端口号，可以根据需要修改
 if __name__ == "__main__":
-     uvicorn.run(app, host=environ.get("HOST", "0.0.0.0"), port=int(environ.get("PORT", 8000))) 
+     uvicorn.run(app, host=environ.get("HOST", "0.0.0.0"), port=int(environ.get("PORT", 8000)))

@@ -6,8 +6,8 @@ from db.db import DbHandler
 from middleware.check_auth import check_auth_M
 from middleware.http_log import http_log_M
 from modules.day import Day, DayInput
-from modules.target import Target
-from modules.tree_app_res import TreeAppHttpResponse 
+from modules.target import Target, AUDIT_APPROVED
+from modules.tree_app_res import TreeAppHttpResponse
 
 day_router = APIRouter(prefix="/days", dependencies=[Depends(http_log_M), Depends(check_auth_M)])
 
@@ -33,7 +33,11 @@ def query_days(target_id: int ,db_handler: DbHandler, request: Request):
 @day_router.post("/add/{target_id}", response_model=TreeAppHttpResponse)
 def add_day(target_id: int, day_input: DayInput, db_handler: DbHandler, request: Request): 
     target = check_target_permission(target_id, db_handler, request)
-    
+
+    # 只有通过管理端审核(approved)的目标才允许打卡
+    if target.audit_status != AUDIT_APPROVED:
+        raise HTTPException(403, "The target has not been approved by admin yet")
+
     if datetime.now() < target.start_time:
         raise HTTPException(400, "The target has not started yet")
     
@@ -47,6 +51,8 @@ def add_day(target_id: int, day_input: DayInput, db_handler: DbHandler, request:
     db_handler.add(day_n)
     db_handler.commit()
     db_handler.refresh(day_n)
+
+    return TreeAppHttpResponse(message="Day added successfully", data=[day_n], total=1)
 
 @day_router.post("/update/{target_id}/{day_id}", response_model=TreeAppHttpResponse)
 def update_day(target_id: int, day_id: int, day_input: DayInput, db_handler: DbHandler, request: Request):

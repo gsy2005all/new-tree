@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "打卡树",
+    "slug": "daka-tree",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#2f8f4e"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "usesCleartextTraffic": true
+    },
+    "plugins": [
+      "expo-status-bar"
+    ]
+  }
+}

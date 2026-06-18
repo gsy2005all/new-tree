@@ -5,3 +5,4 @@ sqlmodel
 bcrypt
 PyJWT
 tzdata
+qrcode[pil]

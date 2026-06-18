@@ -1,7 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 环境变量与密钥（不要上传！）
+.env
+
+# 数据库与日志
+database.db
 *.log
 
-__pycache__/
+# Node / Expo (mobile)
+node_modules/
+.expo/
+dist/
+web-build/
 
-database.db
-
-.env
+# OS / IDE
+.DS_Store
+.vscode/

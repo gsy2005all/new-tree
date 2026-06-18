@@ -4,7 +4,7 @@ from sqlmodel import select
 from db.db import DbHandler
 from middleware.check_auth import check_auth_M
 from middleware.http_log import http_log_M
-from modules.target import Target, TargetInput, TargetUpdateInput
+from modules.target import Target, TargetInput, TargetUpdateInput, AUDIT_PENDING
 from modules.tree_app_res import TreeAppHttpResponse
 
 # 创建一个APIRouter实例，指定路由的前缀为/targets，这样所有在这个路由器中定义的路由都会以/targets开头，并且依赖于http_log_M和check_auth_M中间件函数
@@ -58,6 +58,12 @@ def update_target(target_id: int, target_update_input: TargetUpdateInput, db_han
     for key, value in target_update_input.model_dump().items():
         if key in target_update_input.update_field:
             setattr(target, key, value)
+
+    # 目标内容被修改后需要重新审核，因此重置审核状态为待审核并清空上一次审核结果
+    target.audit_status = AUDIT_PENDING
+    target.audit_reason = None
+    target.audited_by = None
+    target.audited_at = None
 
     # 提交数据库会话，将修改后的Target对象保存到数据库中
     db_handler.commit()
