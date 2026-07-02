@@ -1,94 +1,149 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, Query
-#HTTPException是FastAPI中用于抛出HTTP异常的类，Request是FastAPI中表示HTTP请求的类
-from sqlmodel import select
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from sqlmodel import func, select
+
 from db.db import DbHandler
 from middleware.check_auth import check_auth_M
 from middleware.http_log import http_log_M
-from modules.target import Target, TargetInput, TargetUpdateInput, AUDIT_PENDING
+from modules.target import AUDIT_APPROVED, Target, TargetInput, TargetUpdateInput
 from modules.tree_app_res import TreeAppHttpResponse
+from utils.cache import invalidate_prefix
 
-# 创建一个APIRouter实例，指定路由的前缀为/targets，这样所有在这个路由器中定义的路由都会以/targets开头，并且依赖于http_log_M和check_auth_M中间件函数
+# 创建一个 APIRouter 实例，前缀 /targets，依赖日志与鉴权中间件
 target_router = APIRouter(prefix="/targets", dependencies=[Depends(http_log_M), Depends(check_auth_M)])
+
+
+def _user_targets_key(request: Request, offset: int, limit: int) -> str:
+    return f"targets:user:{request.state.user_payload.user_id}:{offset}:{limit}"
+
+
+# 用装饰器 + 自定义 key 缓存，避免相同用户相同翻页重复查库
+from utils.cache import cached as _cached
+
 
 @target_router.post("/add", response_model=TreeAppHttpResponse)
 def add_target(target_input: TargetInput, db_handler: DbHandler, request: Request):
-    #创建一个Target对象，使用TargetInput对象的属性值来初始化Target对象的属性值
     target_n = Target(**target_input.model_dump())
     target_n.creater_user_id = request.state.user_payload.user_id
 
     if target_n.remind_time >= target_n.deadline_time:
-        raise HTTPException(400, "Remind time must be before deadline time")
-    
+        raise HTTPException(400, "提醒时间必须早于截止时间")
     if target_n.start_time >= target_n.deadline_time:
-        raise HTTPException(400, "Start time must be before deadline time")
-    
-    # 将Target对象添加到数据库会话中
+        raise HTTPException(400, "开始时间必须早于截止时间")
+
+    # 已取消审核机制：新建目标直接为已通过，立即可打卡
+    target_n.audit_status = AUDIT_APPROVED
+
     db_handler.add(target_n)
-    # 提交数据库会话，将添加的Target对象保存到数据库中
     db_handler.commit()
-    # 刷新数据库会话中的Target对象，获取数据库中生成的id等字段的值
     db_handler.refresh(target_n)
-    
-    # 返回添加的Target对象，包含数据库中生成的id等字段的值
+
+    # 新增目标后，该用户的目标列表缓存需要失效
+    invalidate_prefix(f"targets:user:{request.state.user_payload.user_id}:")
     return TreeAppHttpResponse(message="Target added successfully", data=[target_n], total=1)
 
-# 定义一个GET请求的路由，路径为/targets/query，响应模型为TreeAppRes
+
 @target_router.get("/query", response_model=TreeAppHttpResponse)
-    #查询数据库中creater_user_id等于当前用户id的Target对象列表
-def query_targets(db_handler: DbHandler, request: Request, offset: int, limit: int = Query(default=100, le=100)):
-    #查询数据库中creater_user_id等于当前用户id的Target对象列表，并将结果赋值给target_list变量
-    target_list = db_handler.exec(select(Target).where(Target.creater_user_id == request.state.user_payload.user_id).offset(offset).limit(limit).order_by()).all()
-    target_total = len(db_handler.exec(select(Target, Target.id).where(Target.creater_user_id == request.state.user_payload.user_id)).all())
+def query_targets(
+    db_handler: DbHandler,
+    request: Request,
+    offset: int = 0,
+    limit: int = Query(default=100, le=100),
+):
+    uid = request.state.user_payload.user_id
+    # 排序：置顶在前（pin_order 降序），普通目标按创建时间（id 升序）
+    stmt = (
+        select(Target)
+        .where(Target.creater_user_id == uid)
+        .order_by(Target.pinned.desc(), Target.pin_order.desc(), Target.id)
+        .offset(offset)
+        .limit(limit)
+    )
+    target_list = db_handler.exec(stmt).all()
 
-    return TreeAppHttpResponse(message="Targets queried successfully", data=list(target_list), total=int(target_total))
+    total = db_handler.exec(
+        select(func.count(Target.id)).where(Target.creater_user_id == uid)
+    ).one()
 
-# 定义一个POST请求的路由，路径为/targets/update/{target_id}，响应模型为TreeAppResponse
+    return TreeAppHttpResponse(
+        message="Targets queried successfully", data=list(target_list), total=int(total)
+    )
+
+
 @target_router.post("/update/{target_id}", response_model=TreeAppHttpResponse)
-def update_target(target_id: int, target_update_input: TargetUpdateInput, db_handler: DbHandler, request: Request):
-    # 查询要修改的Target对象
-    target = db_handler.exec(select(Target).where(Target.id == target_id)).first()
+def update_target(
+    target_id: int, target_update_input: TargetUpdateInput, db_handler: DbHandler, request: Request
+):
+    target = db_handler.get(Target, target_id)
     if not target:
         raise HTTPException(status_code=404, detail="Target not found")
 
-    # 检查当前用户是否有权限修改该Target对象
     if target.creater_user_id != request.state.user_payload.user_id:
         raise HTTPException(status_code=403, detail="Permission denied")
 
-    # 更新Target对象的属性
     for key, value in target_update_input.model_dump().items():
         if key in target_update_input.update_field:
             setattr(target, key, value)
 
-    # 目标内容被修改后需要重新审核，因此重置审核状态为待审核并清空上一次审核结果
-    target.audit_status = AUDIT_PENDING
-    target.audit_reason = None
-    target.audited_by = None
-    target.audited_at = None
+    # 已取消审核机制：修改后保持已通过状态，无需重新审核
+    target.audit_status = AUDIT_APPROVED
 
-    # 提交数据库会话，将修改后的Target对象保存到数据库中
     db_handler.commit()
-    # 刷新数据库会话中的Target对象，获取更新后的字段的值
     db_handler.refresh(target)
 
-    # 返回修改后的Target对象
+    invalidate_prefix(f"targets:user:{request.state.user_payload.user_id}:")
+    invalidate_prefix(f"stats:target:{target_id}:")
     return TreeAppHttpResponse(message="Target updated successfully", data=[target], total=1)
 
-# 定义一个POST请求的路由，路径为/targets/delete/{target_id}，响应模型为TreeAppRes
+
 @target_router.post("/delete/{target_id}", response_model=TreeAppHttpResponse)
 def delete_target(target_id: int, db_handler: DbHandler, request: Request):
-    # 查询要删除的Target对象
-    target = db_handler.exec(select(Target).where(Target.id == target_id)).first()
+    target = db_handler.get(Target, target_id)
     if not target:
         raise HTTPException(status_code=404, detail="Target not found")
 
-    # 检查当前用户是否有权限删除该Target对象
     if target.creater_user_id != request.state.user_payload.user_id:
         raise HTTPException(status_code=403, detail="Permission denied")
 
-    # 删除Target对象
     db_handler.delete(target)
-    # 提交数据库会话，将删除操作保存到数据库中
     db_handler.commit()
 
-    # 返回删除成功的消息
+    invalidate_prefix(f"targets:user:{request.state.user_payload.user_id}:")
+    invalidate_prefix(f"stats:target:{target_id}:")
     return TreeAppHttpResponse(message="Target deleted successfully", data=[target], total=1)
+
+
+@target_router.post("/pin/{target_id}", response_model=TreeAppHttpResponse)
+def pin_target(target_id: int, db_handler: DbHandler, request: Request):
+    """置顶目标：pinned=True，pin_order 设为当前时间戳，使其排在第一页第一条。"""
+    target = db_handler.get(Target, target_id)
+    if not target:
+        raise HTTPException(status_code=404, detail="Target not found")
+    if target.creater_user_id != request.state.user_payload.user_id:
+        raise HTTPException(status_code=403, detail="Permission denied")
+
+    import time
+    target.pinned = True
+    target.pin_order = int(time.time())
+    db_handler.commit()
+    db_handler.refresh(target)
+
+    invalidate_prefix(f"targets:user:{request.state.user_payload.user_id}:")
+    return TreeAppHttpResponse(message="已置顶", data=[target], total=1)
+
+
+@target_router.post("/unpin/{target_id}", response_model=TreeAppHttpResponse)
+def unpin_target(target_id: int, db_handler: DbHandler, request: Request):
+    """取消置顶。"""
+    target = db_handler.get(Target, target_id)
+    if not target:
+        raise HTTPException(status_code=404, detail="Target not found")
+    if target.creater_user_id != request.state.user_payload.user_id:
+        raise HTTPException(status_code=403, detail="Permission denied")
+
+    target.pinned = False
+    target.pin_order = 0
+    db_handler.commit()
+    db_handler.refresh(target)
+
+    invalidate_prefix(f"targets:user:{request.state.user_payload.user_id}:")
+    return TreeAppHttpResponse(message="已取消置顶", data=[target], total=1)

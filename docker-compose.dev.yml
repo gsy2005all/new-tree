@@ -1,0 +1,16 @@
+# 开发环境：挂载源码 + 热重载，方便改代码即时生效
+services:
+  api:
+    container_name: daka-tree-dev
+    env_file:
+      - .env.dev
+    # --reload 监听文件变化自动重启
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - .:/app                 # 源码挂载，改了立即生效
+      - dev-db:/app/data       # 数据库单独放数据卷，不被源码挂载覆盖
+    ports:
+      - "8000:8000"
+
+volumes:
+  dev-db:

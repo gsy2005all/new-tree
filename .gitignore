@@ -6,6 +6,9 @@ venv/
 
 # 环境变量与密钥（不要上传！）
 .env
+.env.dev
+.env.prod
+.env.test
 
 # 数据库与日志
 database.db

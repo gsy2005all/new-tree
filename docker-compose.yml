@@ -1,0 +1,18 @@
+# 基础编排：所有环境共用的服务定义
+# 实际启动时配合 docker-compose.<env>.yml 一起使用，例如：
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+services:
+  api:
+    build:
+      context: .
+    image: daka-tree:latest
+    # 数据库写到数据卷里，重建容器数据不丢
+    environment:
+      DB_FILE: /app/data/database.db
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/app/version"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped

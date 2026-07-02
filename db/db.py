@@ -1,27 +1,36 @@
 # 创建数据库和表
 from typing import Annotated
+
 from fastapi import Depends
 from loguru import logger
-from sqlmodel import SQLModel, Session, create_engine
-#这上面的是导入模块和库的部分，下面是导入我们自己写的模块
+from sqlmodel import Session, SQLModel, create_engine
 
-from modules.user import User
-from modules.target import Target
+# 这上面的是导入模块和库的部分，下面是导入我们自己写的模块
 from modules.day import Day
+from modules.target import Target
+from modules.user import User
+from utils.config import get_settings
+
+# 全局 engine，由 create_db_and_tables() 初始化
+engine = None
+
 
 def create_db_and_tables():
-    global engine #全局变量
-    sqlite_file_name = "database.db" #指定数据库文件的名称
-    sqlite_url =f"sqlite:///{sqlite_file_name}" #数据库连接URL，格式为sqlite:///数据库文件路径
-    connect_args ={"check_same_thread":False} #SQLite特有的连接参数，允许多个线程访问同一个数据库连接
-    engine=create_engine(sqlite_url,connect_args=connect_args) #数据库的操作权
-    SQLModel.metadata.create_all(engine) #根据定义的模型类创建数据库表，如果表已经存在则不会重复创建S
-    logger.info("The database.db created.")
+    """根据配置创建数据库引擎与所有表。"""
+    global engine
+    settings = get_settings()
+    # SQLite 特有参数：允许多个线程复用同一连接
+    connect_args = {"check_same_thread": False}
+    engine = create_engine(settings.sqlite_url, connect_args=connect_args)
+    SQLModel.metadata.create_all(engine)
+    logger.info(f"Database ready at {settings.db_file}")
 
-#fastapi的依赖函数
-def get_session(): #获取数据库会话的函数，作为FastAPI的依赖项
-    with Session(engine) as session: #创建数据库会话，使用with语句确保会话在使用后正确关闭
-        yield session #提供数据库会话给依赖项，使用yield关键字将会话返回给调用者，并在调用者完成后自动关闭会话
-      
 
-DbHandler = Annotated[Session, Depends(get_session)] #依赖注入，把获取数据库会话封装成可复用的类型注解
+def get_session():
+    """FastAPI 依赖：提供一个数据库会话，用完自动关闭。"""
+    with Session(engine) as session:
+        yield session
+
+
+# 依赖注入：把 get_session 封装成可复用的类型注解
+DbHandler = Annotated[Session, Depends(get_session)]

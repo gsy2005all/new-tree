@@ -1,4 +1,5 @@
 fastapi[standard]
+uvicorn
 loguru
 python-dotenv
 sqlmodel
@@ -6,3 +7,8 @@ bcrypt
 PyJWT
 tzdata
 qrcode[pil]
+# 本次完善新增
+cachetools
+python-multipart
+Pillow
+pydantic-settings

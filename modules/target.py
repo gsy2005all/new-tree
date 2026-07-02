@@ -26,10 +26,14 @@ class Target(Base, table=True):
     deadline_time: datetime  = Field(default=None)
     remind_time: datetime = Field(default=None)
     # ===== 管理端审核相关字段 =====
-    audit_status: str = Field(default=AUDIT_PENDING)      # 审核状态：pending/approved/rejected
+    audit_status: str = Field(default=AUDIT_APPROVED)     # 审核状态：默认已通过（已取消审核机制）
     audit_reason: str | None = Field(default=None)        # 审核意见/不通过原因（人工或AI给出）
     audited_by: int | None = Field(default=None)          # 审核人(管理员)的 user_id；AI 自动审核时为 None
     audited_at: datetime | None = Field(default=None)     # 审核时间
+    # 置顶：True 时排在列表最前。默认 0/False。
+    pinned: bool = Field(default=False)
+    # 排序权重：置顶操作时设为当前时间戳，确保最近置顶的在最前
+    pin_order: int = Field(default=0)
 
 #TargetInput是一个目标输入模型类，用于表示目标的输入信息，里面包含目标的name、deadline_time和remind_time等信息
 class TargetInput(BaseModel):

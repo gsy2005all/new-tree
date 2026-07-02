@@ -1,32 +1,36 @@
 import datetime
-import os
 from zoneinfo import ZoneInfo
+
 import jwt
 
-UTC = ZoneInfo("UTC")
-SECRET_KEY = os.getenv("JWT_SECRET")
+from utils.config import get_settings
 
-# 创建JWT
-def create_jwt(payload: dict, expire_minutes: int = 30) -> str:
-    """创建 JWT（UTC 时间戳，符合规范）"""
-    exp = datetime.datetime.now(UTC) + datetime.timedelta(minutes=expire_minutes)
-    
+UTC = ZoneInfo("UTC")
+
+
+def create_jwt(payload: dict, expire_minutes: int | None = None) -> str:
+    """创建 JWT（UTC 时间戳，符合规范）。过期时间默认取配置中的 7 天。"""
+    settings = get_settings()
+    if expire_minutes is None:
+        expire_minutes = settings.jwt_expire_minutes
+
+    now = datetime.datetime.now(UTC)
+    exp = now + datetime.timedelta(minutes=expire_minutes)
+
     token_payload = {
         **payload,
-        "iat": int(datetime.datetime.now(UTC).timestamp()),  # 签发时间
+        "iat": int(now.timestamp()),  # 签发时间
         "exp": int(exp.timestamp()),  # 过期时间（UTC 时间戳）
     }
-    
-    return jwt.encode(token_payload, SECRET_KEY, algorithm="HS256")
+    return jwt.encode(token_payload, settings.jwt_secret, algorithm="HS256")
 
-# 验证并解码JWT
-def decode_jwt(token: str) -> tuple[bool, dict | None]:    
-    payload = None
+
+def decode_jwt(token: str) -> tuple[bool, dict | None]:
+    settings = get_settings()
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        payload = jwt.decode(token, settings.jwt_secret, algorithms=["HS256"])
     except jwt.ExpiredSignatureError:
         return False, None
     except jwt.InvalidTokenError:
         return False, None
     return True, payload
-    

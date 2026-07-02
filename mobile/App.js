@@ -12,7 +12,7 @@ import { WebView } from "react-native-webview";
 
 // ⚠️ 改成你电脑的局域网地址（和手机连同一个 WiFi），后端用 `python main.py` 启动
 // 默认直接进「用户入口」；想进管理端改成 .../static/admin.html，想要入口选择页改成 .../
-const SITE_URL = "http://192.168.5.209:8000/static/user.html";
+const SITE_URL = "http://192.168.5.227:8000/static/user.html";
 
 export default function App() {
   const webRef = useRef(null);

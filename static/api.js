@@ -29,6 +29,26 @@ const TokenStore = {
   clear(key) { localStorage.removeItem(key); },
 };
 
+// ---- 文件上传：打卡证据图片（multipart/form-data，不能用上面的 JSON 通道）----
+async function uploadFile(file, token) {
+  const form = new FormData();
+  form.append("file", file);
+  const headers = {};
+  if (token) headers["X-Auth-Token"] = token;
+  // 注意：FormData 不要手动设 Content-Type，浏览器会自动带 boundary
+  const res = await fetch("/uploads/proof", { method: "POST", headers, body: form });
+  let data = {};
+  try { data = await res.json(); } catch (e) { /* 忽略空响应 */ }
+  if (!res.ok) throw new Error(data.detail || `上传失败(${res.status})`);
+  // data.data[0].url 为可访问的图片地址，存入 day_proof
+  return data.data && data.data[0] ? data.data[0].url : null;
+}
+
+// ---- 打卡统计 ----
+async function getStats(targetId, token) {
+  return api(`/stats/target/${targetId}`, { token });
+}
+
 // ---- 轻提示 ----
 function toast(msg) {
   let el = document.getElementById("toast");

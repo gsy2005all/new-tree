@@ -14,10 +14,12 @@
 注意: 如果你不在意旧数据，也可以直接删除 database.db，
       启动 main.py 时会按最新的模型自动重新创建表。
 """
+import os
 import sqlite3
 import sys
 
-DB_FILE = "database.db"
+# 与后端一致：可用环境变量 DB_FILE 指定数据库路径（容器内一般是 /app/data/database.db）
+DB_FILE = os.getenv("DB_FILE", "database.db")
 
 # 需要确保存在的新列： 表名 -> [(列名, 列定义), ...]
 NEW_COLUMNS = {
@@ -29,6 +31,15 @@ NEW_COLUMNS = {
         ("audit_reason", "TEXT"),
         ("audited_by", "INTEGER"),
         ("audited_at", "TIMESTAMP"),
+        ("pinned", "INTEGER DEFAULT 0"),
+        ("pin_order", "INTEGER DEFAULT 0"),
+    ],
+    "day": [
+        # 打卡日期（本地日期），用于按天统计/去重/连续天数
+        ("check_date", "DATE"),
+    ],
+    "user": [
+        ("phone", "TEXT"),
     ],
 }
 

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <meta name="theme-color" content="#237a3f" />
+  <meta name="theme-color" content="#2a7a45" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -12,8 +12,8 @@
 </head>
 <body>
   <div class="phone">
-    <div class="topbar" style="background:#237a3f">
-      <h1>🛡️ 审核后台 <span class="sub" id="who"></span></h1>
+    <div class="topbar" style="background:linear-gradient(135deg,#6b7d52,#3f5230)">
+      <h1>🌿 守林人 <span class="sub" id="who"></span></h1>
       <button id="logoutBtn" class="hidden" onclick="logout()">退出</button>
     </div>
     <div class="screen" id="screen"></div>
@@ -21,25 +21,26 @@
 
   <script src="/static/api.js"></script>
   <script>
-    const TK = "tree_admin_token";   // 管理端 token 的存储 key（与用户端互不干扰）
+    const TK = "tree_admin_token";
     const screen = document.getElementById("screen");
     const whoEl = document.getElementById("who");
     const logoutBtn = document.getElementById("logoutBtn");
-    let curFilter = "pending";       // 当前筛选的审核状态
+    let curFilter = "pending";
 
-    // ---------- 登录（仅管理员可进） ----------
+    // ---------- 登录 ----------
     function renderAuth() {
       whoEl.textContent = "";
       logoutBtn.classList.add("hidden");
       screen.innerHTML = `
-        <div class="card">
-          <h3>管理员登录</h3>
-          <label>用户名</label>
-          <input id="name" placeholder="管理员账号" />
+        <div class="card accent" style="margin-top:24px">
+          <div style="text-align:center;font-size:50px;margin-bottom:8px">🌿</div>
+          <h3 style="text-align:center">守林人登录</h3>
+          <label>管理员账号</label>
+          <input id="name" placeholder="管理员账号" autocomplete="off" />
           <label>密码</label>
           <input id="pwd" type="password" placeholder="密码" />
           <button class="btn" onclick="doLogin()">登录</button>
-          <p class="hint">提示：先用 <code>python manage.py set-admin &lt;用户名&gt;</code> 设管理员，再用该账号登录</p>
+          <p class="hint">提示：先用 <code>python manage.py set-admin &lt;用户名&gt;</code> 设管理员</p>
         </div>`;
     }
     async function doLogin() {
@@ -50,7 +51,7 @@
         const res = await api("/users/login", { method: "POST", body: { name, password } });
         if (res.data[0].role !== "admin") return toast("该账号不是管理员");
         TokenStore.set(TK, res.data[0].token);
-        whoEl.textContent = res.data[0].name;
+        whoEl.textContent = "· " + res.data[0].name;
         renderList();
       } catch (e) { toast(e.message); }
     }
@@ -66,33 +67,34 @@
         targets = res.data;
       } catch (e) { toast("登录已过期或无权限"); return logout(); }
 
-      const tab = (key, label) =>
-        `<button class="${curFilter === key ? "active" : ""}" onclick="setFilter('${key}')">${label}</button>`;
+      const tab = (key, label, icon) =>
+        `<button class="${curFilter === key ? "active" : ""}" onclick="setFilter('${key}')">${icon} ${label}</button>`;
 
       let html = `
         <div class="tabs">
-          ${tab("pending", "待审核")}${tab("approved", "已通过")}${tab("rejected", "已驳回")}${tab("all", "全部")}
+          ${tab("pending", "待审", "⏳")}${tab("approved", "通过", "✅")}${tab("rejected", "驳回", "❌")}${tab("all", "全部", "📋")}
         </div>
-        <button class="btn" onclick="aiAll()">🤖 一键 AI 审核所有待审目标</button>`;
+        <button class="btn sun btn-sm" style="width:auto;margin-bottom:14px" onclick="aiAll()">🤖 一键 AI 审核所有待审</button>`;
 
       if (!targets.length) {
-        html += `<div class="empty">该分类下暂无目标</div>`;
+        html += `<div class="empty"><span class="ico">🍃</span>该分类下暂无目标</div>`;
       } else {
         for (const t of targets) {
-          const who = t.audited_by === null && t.audit_status !== "pending" ? "（AI 自动审核）"
-                    : t.audited_by ? `（管理员#${t.audited_by}）` : "";
-          const reason = t.audit_reason ? `<br>审核意见：${t.audit_reason}${who}` : "";
+          const who = t.audited_by === null && t.audit_status !== "pending" ? "（🤖 AI 自动审核）"
+                    : t.audited_by ? `（守林人 #${t.audited_by}）` : "";
+          const reason = t.audit_reason ? `<div class="meta" style="margin-top:6px">📝 ${escapeHtml(t.audit_reason)} <span style="opacity:.7">${who}</span></div>` : "";
+          const showReview = t.audit_status === "pending";
           html += `
             <div class="card">
-              <h3>${t.name} <span class="badge ${t.audit_status}">${STATUS_TEXT[t.audit_status]}</span></h3>
+              <h3>🌳 ${escapeHtml(t.name)} <span class="badge ${t.audit_status}">${STATUS_TEXT[t.audit_status]}</span></h3>
               <div class="meta">
-                提交用户ID：${t.creater_user_id} · 目标ID：${t.id}<br>
-                开始：${fmt(t.start_time)} → 截止：${fmt(t.deadline_time)}<br>
-                提醒：${fmt(t.remind_time)}${reason}
+                👤 提交者 ID：${t.creater_user_id} · 目标 #${t.id}<br>
+                🗓 ${fmt(t.start_time)} → ${fmt(t.deadline_time)}<br>
+                ⏰ 提醒：${fmt(t.remind_time)} · 已打卡 ${t.current_day||0} 天
               </div>
+              ${reason}
               <div class="btn-row">
-                <button class="btn" onclick="review(${t.id}, true)">通过</button>
-                <button class="btn danger" onclick="review(${t.id}, false)">驳回</button>
+                ${showReview ? `<button class="btn" onclick="review(${t.id}, true)">✅ 通过</button><button class="btn danger" onclick="review(${t.id}, false)">❌ 驳回</button>` : ""}
                 <button class="btn secondary" onclick="aiOne(${t.id})">🤖 AI判断</button>
               </div>
             </div>`;
@@ -103,25 +105,21 @@
 
     function setFilter(f) { curFilter = f; renderList(); }
 
-    // 人工审核
     async function review(id, approved) {
       let reason = "";
       if (!approved) {
         reason = prompt("请填写驳回原因：", "内容需更具体");
         if (reason === null) return;
       } else {
-        reason = "管理员人工通过";
+        reason = "守林人人工通过";
       }
       try {
-        await api(`/admin/targets/${id}/review`, {
-          method: "POST", token: TokenStore.get(TK), body: { approved, reason },
-        });
-        toast(approved ? "已通过" : "已驳回");
+        await api(`/admin/targets/${id}/review`, { method: "POST", token: TokenStore.get(TK), body: { approved, reason } });
+        toast(approved ? "已通过 🌱" : "已驳回");
         renderList();
       } catch (e) { toast(e.message); }
     }
 
-    // 单个 AI 审核
     async function aiOne(id) {
       try {
         const res = await api(`/admin/targets/${id}/ai-review`, { method: "POST", token: TokenStore.get(TK) });
@@ -131,15 +129,15 @@
       } catch (e) { toast(e.message); }
     }
 
-    // 批量 AI 审核
     async function aiAll() {
       try {
         const res = await api("/admin/targets/ai-review-pending", { method: "POST", token: TokenStore.get(TK) });
-        toast(`已自动审核 ${res.total} 个待审目标`);
+        toast(`已自动审核 ${res.total} 个待审目标 🤖`);
         renderList();
       } catch (e) { toast(e.message); }
     }
 
+    function escapeHtml(s) { return String(s||"").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
     function logout() { TokenStore.clear(TK); renderAuth(); }
 
     if (TokenStore.get(TK)) renderList(); else renderAuth();

@@ -1,0 +1,14 @@
+# 测试环境：独立数据卷与端口，配置接近生产但便于联调验证
+services:
+  api:
+    container_name: daka-tree-test
+    env_file:
+      - .env.test
+    command: python main.py
+    volumes:
+      - test-db:/app/data
+    ports:
+      - "8001:8000"            # 宿主机 8001 -> 容器 8000，可与 dev 同时跑
+
+volumes:
+  test-db:

@@ -1,0 +1,16 @@
+# 生产环境：多进程、始终重启、独立数据卷；密钥从 .env.prod 注入
+services:
+  api:
+    container_name: daka-tree-prod
+    env_file:
+      - .env.prod
+    # 多进程提升并发（SQLite 写入有锁，量大时建议换 PostgreSQL）
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4
+    volumes:
+      - prod-db:/app/data
+    ports:
+      - "8080:8000"            # 生产通常在前面再挂 Nginx/Caddy 反代到 80/443
+    restart: always
+
+volumes:
+  prod-db:
