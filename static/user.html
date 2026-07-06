@@ -9,6 +9,30 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>打卡树 · 用户端</title>
   <link rel="stylesheet" href="/static/app.css" />
+  <script>
+    // 安卓适配：env(safe-area-inset-bottom) 在部分 WebView/Expo 下不可靠，
+    // 用 visualViewport 实测底部被遮挡的高度，写入 CSS 变量 --safe-b 兜底。
+    (function () {
+      function applySafe() {
+        var vpt = window.visualViewport || { height: window.innerHeight, offsetTop: 0 };
+        var gap = window.innerHeight - vpt.height;
+        var safe = Math.max(gap, 0);
+        // 至少给安卓手势条留 24px（env() 在 WebView 里常常为 0）
+        if (safe < 12 && /android/i.test(navigator.userAgent)) safe = 24;
+        document.documentElement.style.setProperty("--safe-b", safe + "px");
+        // 顶部安全区：用 visualViewport.offsetTop 或状态栏估算
+        var safeT = Math.max(vpt.offsetTop || 0, 0);
+        if (/android/i.test(navigator.userAgent) && safeT < 8) safeT = 0;
+        document.documentElement.style.setProperty("--safe-t", safeT + "px");
+      }
+      applySafe();
+      window.addEventListener("resize", applySafe);
+      window.addEventListener("visualViewport", "scroll"); // 占位防报错
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener("resize", applySafe);
+      }
+    })();
+  </script>
 </head>
 <body>
   <div class="phone">

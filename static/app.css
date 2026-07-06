@@ -46,6 +46,10 @@
   --shadow-sm: 0 2px 10px rgba(42, 122, 69, 0.08);
   --shadow-md: 0 6px 22px rgba(42, 122, 69, 0.12);
   --shadow-lg: 0 14px 40px rgba(42, 122, 69, 0.16);
+
+  /* 安卓底部安全区兜底：JS 实测后写入 --safe-b，env() 不可靠时用它 */
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-t: env(safe-area-inset-top, 0px);
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -68,8 +72,9 @@ html, body {
   position: relative;
   width: 100%;
   max-width: 460px;
-  min-height: 100vh;
-  min-height: 100dvh;
+  /* 关键：固定为视口高度，不让内容把它撑高，这样顶栏/底栏固定、只有内容区滚动 */
+  height: 100vh;
+  height: 100dvh;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -90,7 +95,7 @@ html, body {
   flex: 0 0 auto;
   position: relative;
   padding: 20px 20px 26px;
-  padding-top: calc(20px + env(safe-area-inset-top));
+  padding-top: calc(20px + var(--safe-t));
   color: #fff;
   background:
     linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
@@ -131,10 +136,10 @@ html, body {
 
 /* ===== 内容滚动区 ===== */
 .screen {
-  flex: 1;
+  flex: 1 1 auto;
   overflow-y: auto;
-  padding: 18px 16px calc(28px + env(safe-area-inset-bottom));
   -webkit-overflow-scrolling: touch;
+  padding: 18px 16px 16px;
 }
 
 /* ===== 毛玻璃卡片 ===== */
@@ -481,7 +486,7 @@ input:focus, select:focus, textarea:focus {
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border-top: 1px solid var(--line);
-  padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
+  padding: 8px 0 calc(8px + var(--safe-b));
   z-index: 10;
   box-shadow: 0 -4px 20px rgba(42,122,69,0.08);
 }
@@ -503,10 +508,15 @@ input:focus, select:focus, textarea:focus {
 .page { display: none; }
 .page.active { display: block; }
 
-/* ===== 安卓/真机底部遮挡适配：screen 留出 tabbar 高度 ===== */
+/* ===== 安卓/真机底部遮挡适配 ===== */
+/* Tab 栏在 flex 流中固定，内容区在它之上滚动，无需额外让位 padding */
 .screen.page {
-  /* tabbar 高度约 64px + 安卓导航栏，统一留 84px，再加 safe-area */
-  padding-bottom: calc(96px + env(safe-area-inset-bottom));
+  min-height: 0;            /* 关键：允许 flex 子项收缩并内部滚动 */
+  flex: 1 1 auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  /* 普通底部留白 + 安卓手势条安全区 */
+  padding-bottom: calc(20px + var(--safe-b));
 }
 
 /* ===== 紧凑目标卡（Woods 分页式，每页4个） ===== */
